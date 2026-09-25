@@ -1,0 +1,39 @@
+name: Excavator
+
+on:
+  workflow_dispatch:
+  schedule:
+    # UTC 时间，每 6 小时一次 = 北京时间 02:23 / 08:23 / 14:23 / 20:23
+    # 避开整点（GitHub 在整点排队严重），改成每 4 小时就把 */6 改成 */4
+    - cron: '23 */6 * * *'
+
+permissions:
+  # 直接把更新后的清单 commit + push 回本分支，必须 write
+  contents: write
+
+# 上次没跑完就到了下一次触发时，排队而不是并发，避免互相覆盖
+concurrency:
+  group: excavator
+  cancel-in-progress: false
+
+jobs:
+  excavate:
+    name: Excavate
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Excavate
+        uses: ScoopInstaller/GithubActions@5bceeda181721d9d10a18fdcc3ddca6f33467ae6 # v3.0.0
+        env:
+          # 默认是 ${{ github.token }}；若用默认的 Actions Token 提交，
+          # 这次 push 不会触发本仓库其它 on: push 的工作流。
+          # 想让 bot 的提交也触发下游流程，就换成自己的 PAT（repo 权限，存为 Secret）：
+          # GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 日志里只打印有更新的清单，减少噪音
+          SKIP_UPDATED: 1
+          # 某个清单 checkver 报错时让这次运行直接失败（默认是只打印、继续跑别的）
+          # THROW_ERROR: 1
+          # 无论版本是否变化都强制重算 hash
+          # SPECIAL_SNOWFLAKES: some-app,other-app
